@@ -7,7 +7,7 @@ RPGStats is a Vue 3 + TypeScript application. Default mode preserves the histori
 - `domain/dice/types.ts` defines the modes, supported dice, roll conditions, and d20 outcome results.
 - `domain/dice/actionTypes.ts` defines actions, enemy statistics, Save settings, damage rolls, and distribution formats exposed to the interface.
 - `domain/dice/actionAnalysis.ts` calculates per-roll and per-action damage distributions, resolves enemy AC/save targets, applies Save settings and per-type enemy damage traits, and combines all action contributions.
-- `domain/dice/survivalAnalysis.ts` repeatedly convolves a turn's total damage distribution, capped by enemy HP, to calculate survival probabilities over a fixed horizon.
+- `domain/dice/survivalAnalysis.ts` repeatedly applies a turn's total damage distribution to remaining HP states, including defeated enemies at 0 HP, to calculate survival probabilities and HP quantiles over a fixed horizon.
 - `domain/dice/probability.ts` builds dice distributions and classifies tests according to the current mode rules.
 - `domain/dice/damageTypes.ts` provides the suggested type catalog, filtered by mode, with default colors.
 - `domain/dice/rollExpression.ts` preserves historical expression parsing.
@@ -35,7 +35,7 @@ flowchart LR
   ActionDamage --> Individual[Per-roll charts]
   Total --> TotalChart[Total damage distribution]
   Total --> Threshold[Probability of at least X total damage]
-  Total --> Survival[Enemy survival over 10 turns]
+  Total --> Survival[Enemy survival and HP quantiles over 10 turns]
 ```
 
 Each action carries its own d20 test. Without an enemy, it uses that action's test modifier and DC. With an enemy, regular actions use the enemy AC and the action modifier, while Save actions use the selected enemy save modifier and the action DC. Advantage or Disadvantage applies to the test in DnD only; it never affects damage dice. In DnD, a natural 1 or 20 on the single d20 test is a critical failure or critical success, respectively; other results are classified as success or failure against the DC. PF2 classifies degrees by the result's difference from the DC (10 or more above is critical success, 10 or more below is critical failure), then shifts the degree one step for a natural 20 or natural 1. Default mode classifies results only as success or failure against its optional DC.
@@ -49,7 +49,7 @@ Damage rolls in one action combine by convolution. Each roll's result, including
 Each action's contribution distribution combines its conditional damage distribution with the test outcome probabilities, applying the action's regular, Save, or Basic Save rule for each degree. Contributions are convolved to obtain the exact total damage distribution. The global views require a valid integer DC for every action and valid damage expressions; conditional per-roll distributions remain available without a DC.
 
 The total damage distribution is also used to calculate the probability of reaching or exceeding each damage threshold `X`.
-When enemy HP is a positive integer, this distribution is repeatedly applied for 10 turns to show the probability that cumulative damage remains below HP.
+When enemy HP is a positive integer, this distribution is repeatedly applied for 10 turns to show the probability that cumulative damage remains below HP and the D1, Q1, median, Q3, and D9 quantiles of remaining HP. Defeated enemies stay at 0 HP in this distribution.
 
 The DC can be left empty to inspect conditional per-roll damage distributions; a valid per-action DC or enemy target is required for its success probability and contribution to the global distributions. Damage-roll-specific conditions other than the optional reroll of 1s are not modeled.
 

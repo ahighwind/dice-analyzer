@@ -54,7 +54,7 @@ Damage types are selected from the active mode's list, and each type has an asso
 - Critical success and critical failure logic
 - Per-roll, per-action, and total damage charts
 - Probability of reaching or exceeding a threshold of total damage
-- Enemy survival probability over the next 10 turns when positive enemy HP is provided
+- Enemy survival probability and remaining HP quantiles over the next 10 turns when positive enemy HP is provided
 - URL-based mode switching via `?mode=dnd` and `?mode=pf2`
 
 ## Dice expressions and analysis
@@ -63,7 +63,7 @@ Expressions use standard dice notation, such as `2d20+3d8+1` or `1d6 - 2`. The D
 
 In Default mode, the target DC is optional; when provided, the app also reports success probability. In DnD and PF2, each action has its own d20 test. Without an enemy, each action also has its own modifier and DC. With an enemy, attacks use its AC and the action modifier; Save actions use the selected enemy saving throw modifier and the action DC. Total damage analysis requires valid target values for every action and valid damage expressions. Leaving a required target blank still allows conditional damage rolls to be inspected, but excludes the global damage distribution.
 
-When an enemy has positive HP and all actions have valid target and damage values, the app also charts its probability of surviving each of the next 10 turns. It assumes the same action set is repeated each turn and computes survival as the probability that cumulative damage, after applying enemy damage traits, remains below the enemy's HP.
+When an enemy has positive HP and all actions have valid target and damage values, the app charts its probability of surviving each of the next 10 turns and the enemy's remaining HP quantiles (D1, Q1, median, Q3, and D9) after each turn. Defeated enemies remain at 0 HP in the quantile distribution. It assumes the same action set is repeated each turn and uses the total damage distribution after applying enemy damage traits.
 
 DnD critical damage can use either doubled damage dice (modifiers apply once) or the alternative rule that adds the maximum possible dice result. PF2 doubles final damage on a critical success. Basic saves deal double damage on critical failure, normal damage on failure, half damage rounded down on success, and no damage on critical success.
 

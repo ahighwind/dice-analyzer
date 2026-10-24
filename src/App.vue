@@ -11,7 +11,7 @@ import RollSummary from './components/RollSummary.vue'
 import StatisticsPanel from './components/StatisticsPanel.vue'
 import { useRollAnalysis } from './composables/useRollAnalysis'
 import { parseIntegerInput } from './domain/dice/rollExpression'
-import { getEnemySurvivalProbabilities } from './domain/dice/survivalAnalysis'
+import { getEnemySurvivalAnalysis } from './domain/dice/survivalAnalysis'
 
 const {
   actions,
@@ -33,9 +33,11 @@ const {
 } = useRollAnalysis()
 const actionAnalyses = computed(() => analysis.value?.actions ?? [])
 const enemyHitPoints = computed(() => parseIntegerInput(enemy.value?.hpInput ?? ''))
-const enemySurvivalProbabilities = computed(() => {
-  if (enemyHitPoints.value === null || enemyHitPoints.value <= 0) return []
-  return getEnemySurvivalProbabilities(
+const enemySurvivalAnalysis = computed(() => {
+  if (enemyHitPoints.value === null || enemyHitPoints.value <= 0) {
+    return { survivalProbabilities: [], hitPointQuantiles: [] }
+  }
+  return getEnemySurvivalAnalysis(
     analysis.value?.totalDamageDistribution ?? [],
     enemyHitPoints.value,
   )
@@ -121,9 +123,10 @@ function closeSettings() {
         @select-mode="setMode"
       />
       <EnemySurvivalChart
-        v-if="enemyHitPoints !== null && enemyHitPoints > 0 && enemySurvivalProbabilities.length"
+        v-if="enemyHitPoints !== null && enemyHitPoints > 0 && enemySurvivalAnalysis.survivalProbabilities.length"
         :hit-points="enemyHitPoints"
-        :probabilities="enemySurvivalProbabilities"
+        :probabilities="enemySurvivalAnalysis.survivalProbabilities"
+        :hit-point-quantiles="enemySurvivalAnalysis.hitPointQuantiles"
       />
       <p
         v-else-if="mode !== 'default' && enemyHitPoints !== null && enemyHitPoints > 0"
