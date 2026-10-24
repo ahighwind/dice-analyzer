@@ -3,6 +3,6 @@ import vue from '@vitejs/plugin-vue'
 
 // https://vite.dev/config/
 export default defineConfig({
-  base: process.env.GITHUB_ACTIONS === 'true' ? '/diceanalyzer/' : '/',
+  base: process.env.GITHUB_ACTIONS === 'true' ? '/dice-analyzer/' : '/',
   plugins: [vue()],
 })

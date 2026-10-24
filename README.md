@@ -92,9 +92,13 @@ npm run preview
 
 ## Deploy to GitHub Pages
 
-The GitHub Actions workflow builds and deploys the app when changes are pushed to `main`.
-In the repository settings, go to **Settings > Pages** and set the build and deployment source to **GitHub Actions**.
-The app will then be available at <https://ahighwind.github.io/diceanalyzer/>.
+The GitHub Actions workflow in `.github/workflows/deploy.yml` builds and deploys the app when changes are pushed to `main`. It can also be started manually from the **Actions** tab.
+
+1. Push the repository to GitHub.
+2. In **Settings > Pages**, set the build and deployment source to **GitHub Actions**.
+3. Check the **Actions** tab for the deployment result. Once it succeeds, the app is available at <https://ahighwind.github.io/dice-analyzer/>.
+
+This repository is a project site, so Vite uses `/dice-analyzer/` as its production base path in GitHub Actions builds. If you rename the repository or deploy it under a different path (for example, as a user/organization site), update `base` in `vite.config.ts` to match. Keep `npm run build` passing locally before pushing; the workflow uses `npm ci` to install the exact dependency versions from the lockfile.
 
 ## Project structure
 
