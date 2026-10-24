@@ -3,6 +3,7 @@ import { computed, ref } from 'vue'
 import ActionResults from './components/ActionResults.vue'
 import AnalysisControls from './components/AnalysisControls.vue'
 import DamageComparisonChart from './components/DamageComparisonChart.vue'
+import DamageStatistics from './components/DamageStatistics.vue'
 import DamageThresholdChart from './components/DamageThresholdChart.vue'
 import CumulativeChart from './components/CumulativeChart.vue'
 import EnemySurvivalChart from './components/EnemySurvivalChart.vue'
@@ -201,6 +202,10 @@ function closeSettings() {
             />
             <DamageThresholdChart
               :distribution="analysis.totalDamageDistribution"
+            />
+            <DamageStatistics
+              :total-distribution="analysis.totalDamageDistribution"
+              :damage-types="analysis.damageTypeDistributions"
             />
           </div>
         </template>

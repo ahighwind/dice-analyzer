@@ -7,7 +7,7 @@ import {
   Tooltip,
 } from 'chart.js'
 import { ref } from 'vue'
-import type { ChartConfiguration } from 'chart.js'
+import type { ChartConfiguration, Plugin } from 'chart.js'
 import type { DistributionOutcome } from '../domain/dice/actionTypes'
 import { useChartLifecycle } from '../composables/useChartLifecycle'
 
@@ -19,6 +19,42 @@ const props = defineProps<{
 
 const canvas = ref<HTMLCanvasElement | null>(null)
 let chart: ChartJS<'bar', { x: number; y: number }[], number> | null = null
+
+const statisticMarkers = [
+  { key: 'mean', color: '#f87171', dash: [] },
+  { key: 'd1', color: '#60a5fa', dash: [2, 3] },
+  { key: 'q1', color: '#60a5fa', dash: [5, 3] },
+  { key: 'median', color: '#60a5fa', dash: [10, 3, 2, 3] },
+  { key: 'q3', color: '#60a5fa', dash: [5, 3] },
+  { key: 'd9', color: '#60a5fa', dash: [2, 3] },
+] as const
+
+type StatisticKey = typeof statisticMarkers[number]['key']
+
+function calculateStatistics(distribution: DistributionOutcome[]): Record<StatisticKey, number> {
+  const sorted = [...distribution].sort((left, right) => left.value - right.value)
+  const mean = sorted.reduce(
+    (sum, outcome) => sum + outcome.value * outcome.probability,
+    0,
+  )
+  const quantile = (threshold: number) => {
+    let cumulativeProbability = 0
+    for (const outcome of sorted) {
+      cumulativeProbability += outcome.probability
+      if (cumulativeProbability >= threshold) return outcome.value
+    }
+    return sorted.at(-1)?.value ?? 0
+  }
+
+  return {
+    mean,
+    d1: quantile(0.1),
+    q1: quantile(0.25),
+    median: quantile(0.5),
+    q3: quantile(0.75),
+    d9: quantile(0.9),
+  }
+}
 
 function getThresholdProbabilities(distribution: DistributionOutcome[]) {
   if (!distribution.length) return []
@@ -49,6 +85,28 @@ function render() {
 
   const data = getThresholdProbabilities(props.distribution)
   if (!canvas.value || !data.length) return
+  const statistics = calculateStatistics(props.distribution)
+  const statisticsPlugin: Plugin<'bar'> = {
+    id: 'threshold-damage-statistic-markers',
+    afterDatasetsDraw(chart) {
+      const { ctx, chartArea, scales } = chart
+      ctx.save()
+      for (const marker of statisticMarkers) {
+        const x = scales.x.getPixelForValue(statistics[marker.key])
+        if (x < chartArea.left || x > chartArea.right) continue
+
+        ctx.beginPath()
+        ctx.setLineDash([...marker.dash])
+        ctx.strokeStyle = marker.color
+        ctx.lineWidth = marker.key === 'mean' ? 2 : 1.5
+        ctx.moveTo(x, chartArea.top)
+        ctx.lineTo(x, chartArea.bottom)
+        ctx.stroke()
+      }
+      ctx.restore()
+    },
+  }
+  const minStatistic = Math.min(...Object.values(statistics))
 
   const configuration: ChartConfiguration<'bar', { x: number; y: number }[], number> = {
     type: 'bar',
@@ -79,7 +137,7 @@ function render() {
       scales: {
         x: {
           type: 'linear',
-          min: 1,
+          min: Math.min(1, minStatistic),
           max: data[data.length - 1].x,
           ticks: {
             stepSize: 1,
@@ -97,6 +155,7 @@ function render() {
         },
       },
     },
+    plugins: [statisticsPlugin],
   }
 
   chart = new ChartJS(canvas.value, configuration)

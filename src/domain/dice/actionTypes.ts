@@ -37,6 +37,12 @@ export interface DistributionOutcome {
   probability: number
 }
 
+export interface DamageTypeDistribution {
+  type: string
+  color: string
+  distribution: DistributionOutcome[]
+}
+
 export interface DamageRollAnalysis {
   definition: DamageRollDefinition
   distribution: DistributionOutcome[] | null
@@ -53,12 +59,14 @@ export interface ActionAnalysis {
   damageRolls: DamageRollAnalysis[]
   damageDistribution: DistributionOutcome[] | null
   contributionDistribution: DistributionOutcome[] | null
+  damageTypeDistributions: DamageTypeDistribution[]
   hasInvalidDamageExpression: boolean
 }
 
 export interface ActionsAnalysis {
   actions: ActionAnalysis[]
   totalDamageDistribution: DistributionOutcome[] | null
+  damageTypeDistributions: DamageTypeDistribution[]
   hasInvalidDamageExpression: boolean
   hasInvalidEnemyDamageTraits: boolean
   hasMissingDC: boolean

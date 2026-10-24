@@ -7,6 +7,7 @@ import type {
   ActionDefinition,
   ActionsAnalysis,
   DistributionOutcome,
+  DamageTypeDistribution,
   EnemyDefinition,
   EnemySaveType,
 } from './actionTypes'
@@ -278,6 +279,43 @@ function buildEnemyContributionDistribution(
   )
 }
 
+function buildDamageTypeContributionDistribution(
+  damageDistributions: { regular: DistributionOutcome[]; critical: DistributionOutcome[] },
+  testOutcomes: ActionAnalysis['testOutcomes'],
+  action: ActionDefinition,
+  damageType: string,
+  enemy: EnemyDefinition | null,
+  mode: AnalysisMode,
+): DistributionOutcome[] {
+  const contribution = new Map<number, number>()
+
+  for (const testOutcome of testOutcomes) {
+    const multiplier = getDamageMultiplier(testOutcome.status, action)
+    const isCriticalHit = !action.isSave && testOutcome.status === 'criticalSuccess'
+    const damageDistribution = isCriticalHit
+      ? damageDistributions.critical
+      : damageDistributions.regular
+    const adjustedDistribution = toDistribution(damageDistribution.map(({ value, probability }) => ({
+      value: multiplier === 0.5 ? Math.floor(value / 2) : value * multiplier,
+      probability,
+    })))
+    const appliedDistribution = enemy
+      ? applyEnemyDamageRules(adjustedDistribution, damageType, enemy, mode)
+      : adjustedDistribution
+
+    for (const outcome of appliedDistribution) {
+      contribution.set(
+        outcome.value,
+        (contribution.get(outcome.value) ?? 0) + testOutcome.probability * outcome.probability,
+      )
+    }
+  }
+
+  return toDistribution(
+    Array.from(contribution, ([value, probability]) => ({ value, probability })),
+  )
+}
+
 function buildActionAnalysis(
   action: ActionDefinition,
   mode: AnalysisMode,
@@ -328,6 +366,8 @@ function buildActionAnalysis(
   const damageDistributionsByType = new Map<string, {
     regular: DistributionOutcome[]
     critical: DistributionOutcome[]
+    type: string
+    color: string
   }>()
   for (const damageRoll of action.damageRolls) {
     const regularDistribution = damageRolls.find((roll) => roll.definition.id === damageRoll.id)?.distribution
@@ -335,9 +375,15 @@ function buildActionAnalysis(
     const normalizedDamageType = damageRoll.type.trim().toLowerCase()
     const existing = damageDistributionsByType.get(normalizedDamageType)
     const regular = convolve(existing?.regular ?? [{ value: 0, probability: 1 }], regularDistribution)
-    damageDistributionsByType.set(normalizedDamageType, { regular, critical: [] })
+    damageDistributionsByType.set(normalizedDamageType, {
+      regular,
+      critical: [],
+      type: existing?.type ?? damageRoll.type.trim(),
+      color: existing?.color ?? damageRoll.color,
+    })
   }
 
+  const damageTypeDistributions: DamageTypeDistribution[] = []
   for (const [damageType, typeDistribution] of damageDistributionsByType) {
     const typeRolls = action.damageRolls.filter((roll) => roll.type.trim().toLowerCase() === damageType)
     const critical = buildCriticalDamageDistribution(
@@ -347,11 +393,23 @@ function buildActionAnalysis(
       criticalDamageRule,
       action.rerollDamageOnes,
     )
-    if (critical === null) {
-      damageDistributionsByType.set(damageType, { ...typeDistribution, critical: [] })
-    } else {
-      damageDistributionsByType.set(damageType, { ...typeDistribution, critical })
-    }
+    const criticalDistribution = critical ?? []
+    damageDistributionsByType.set(damageType, {
+      ...typeDistribution,
+      critical: criticalDistribution,
+    })
+    damageTypeDistributions.push({
+      type: typeDistribution.type,
+      color: typeDistribution.color,
+      distribution: buildDamageTypeContributionDistribution(
+        { regular: typeDistribution.regular, critical: criticalDistribution },
+        testOutcomes,
+        action,
+        damageType,
+        enemy,
+        mode,
+      ),
+    })
   }
   const criticalDamageDistribution = damageDistribution === null
     ? null
@@ -398,6 +456,7 @@ function buildActionAnalysis(
     damageRolls,
     damageDistribution,
     contributionDistribution,
+    damageTypeDistributions,
     hasInvalidDamageExpression,
   }
 }
@@ -433,10 +492,29 @@ export function analyzeActions(
       (distribution, action) => convolve(distribution, action.contributionDistribution ?? []),
       [{ value: 0, probability: 1 }],
     )
+  const damageTypeDistributions = new Map<string, DamageTypeDistribution>()
+
+  if (totalDamageDistribution !== null) {
+    for (const action of analyzedActions) {
+      for (const damageType of action.damageTypeDistributions) {
+        const key = damageType.type.toLowerCase()
+        const existing = damageTypeDistributions.get(key)
+        damageTypeDistributions.set(key, {
+          type: existing?.type ?? damageType.type,
+          color: existing?.color ?? damageType.color,
+          distribution: convolve(
+            existing?.distribution ?? [{ value: 0, probability: 1 }],
+            damageType.distribution,
+          ),
+        })
+      }
+    }
+  }
 
   return {
     actions: analyzedActions,
     totalDamageDistribution: hasInvalidDamageExpression ? null : totalDamageDistribution,
+    damageTypeDistributions: [...damageTypeDistributions.values()],
     hasInvalidDamageExpression,
     hasInvalidEnemyDamageTraits,
     hasMissingDC,
